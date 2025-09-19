@@ -84,8 +84,8 @@
                 <label for="board-select" class="text-gray-700 font-medium whitespace-nowrap">分電盤:</label>
                 <select id="board-select" class="rounded-lg border-gray-300 shadow-sm">
                     <script>
-                        // 動的に12個の分電盤オプションを生成
-                        for (let i = 1; i <= 12; i++) {
+                        // 動的に100個の分電盤オプションを生成
+                        for (let i = 1; i <= 100; i++) {
                             document.write(`<option value="board-${i}">分電盤 ${i}</option>`);
                         }
                     </script>
@@ -134,7 +134,7 @@
         // 現場リストをlocalStorageに保存して管理する
         const SITE_LIST_KEY = "breaker_sites";
         function loadSites() {
-            return JSON.parse(localStorage.getItem(SITE_LIST_KEY)) || ["A現場", "B現場", "C現場"];
+            return JSON.parse(localStorage.getItem(SITE_LIST_KEY)) || ["(大建)平野複合開発", "(大建)堂山町計画", "(大建)白橿小学校"];
         }
         function saveSites(sites) {
             localStorage.setItem(SITE_LIST_KEY, JSON.stringify(sites));
