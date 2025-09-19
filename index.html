@@ -67,8 +67,20 @@
         <h1 class="text-3xl md:text-4xl font-bold text-center mb-2 text-gray-800">漏電ブレーカー作動テスト表</h1>
         <p class="text-sm md:text-base text-gray-600 text-center mb-4">使用前に毎日テストボタンで作動を確認する事</p>
         
-        <!-- 分電盤と年表示ナビゲーション -->
+        <!-- 分電盤と現場表示ナビゲーション -->
         <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-8">
+            <div class="flex items-center gap-2">
+                <label for="site-select" class="text-gray-700 font-medium whitespace-nowrap">現場:</label>
+                <select id="site-select" class="rounded-lg border-gray-300 shadow-sm">
+                    <script>
+                        // 現場オプションを生成（例として3つ。必要に応じて編集可）
+                        const siteNames = ["A現場", "B現場", "C現場"];
+                        siteNames.forEach((site, i) => {
+                            document.write(`<option value="site-${i+1}">${site}</option>`);
+                        });
+                    </script>
+                </select>
+            </div>
             <div class="flex items-center gap-2">
                 <label for="board-select" class="text-gray-700 font-medium whitespace-nowrap">分電盤:</label>
                 <select id="board-select" class="rounded-lg border-gray-300 shadow-sm">
@@ -120,27 +132,28 @@
     </div>
     
     <script>
-        // カレンダー機能（ローカル保存機能付き）
+        // カレンダー機能（現場ごと＋分電盤ごと＋年ごとにローカル保存）
         const calendarContainer = document.getElementById('calendar');
+        const siteSelect = document.getElementById('site-select');
         const boardSelect = document.getElementById('board-select');
         const yearDisplay = document.getElementById('current-year');
         const prevYearBtn = document.getElementById('prev-year');
         const nextYearBtn = document.getElementById('next-year');
 
         let currentYear = new Date().getFullYear();
+        let currentSite = siteSelect.value;
         let currentBoard = boardSelect.value;
         const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-        // localStorageキー生成
-        function getStorageKey(board, year) {
-            return `breaker_checks_${board}_${year}`;
+        // localStorageキー生成（現場も含める）
+        function getStorageKey(site, board, year) {
+            return `breaker_checks_${site}_${board}_${year}`;
         }
 
-        // 状態の取得
-        function loadChecks(board, year) {
-            const key = getStorageKey(board, year);
+        // 状態の取得（site, board, yearを渡す）
+        function loadChecks(site, board, year) {
+            const key = getStorageKey(site, board, year);
             try {
-                // localStorageからデータを取得し、パースする。データがない場合は空のオブジェクトを返す
                 return JSON.parse(localStorage.getItem(key)) || {};
             } catch (e) {
                 console.error("Failed to load data from localStorage", e);
@@ -148,11 +161,10 @@
             }
         }
 
-        // 状態の保存
-        function saveChecks(board, year, checks) {
-            const key = getStorageKey(board, year);
+        // 状態の保存（site, board, yearを渡す）
+        function saveChecks(site, board, year, checks) {
+            const key = getStorageKey(site, board, year);
             try {
-                // データをJSON文字列に変換してlocalStorageに保存
                 localStorage.setItem(key, JSON.stringify(checks));
             } catch (e) {
                 console.error("Failed to save data to localStorage", e);
@@ -192,7 +204,7 @@
 
         // チェック状態をレンダリング
         function renderCheckmarks() {
-            const checks = loadChecks(currentBoard, currentYear);
+            const checks = loadChecks(currentSite, currentBoard, currentYear);
             const dayCells = calendarContainer.querySelectorAll('.day-cell');
             dayCells.forEach(cell => {
                 const month = cell.dataset.month;
@@ -224,7 +236,7 @@
             const month = cell.dataset.month;
             const day = cell.dataset.day;
             const key = `${month}-${day}`;
-            let checks = loadChecks(currentBoard, currentYear);
+            let checks = loadChecks(currentSite, currentBoard, currentYear);
             
             if (cell.classList.contains('checked-cell')) {
                 // チェックマークを削除
@@ -237,7 +249,7 @@
                 cell.innerHTML = '✔';
                 checks[key] = true; // 状態を保存
             }
-            saveChecks(currentBoard, currentYear, checks);
+            saveChecks(currentSite, currentBoard, currentYear, checks);
         });
 
         // 年号変更ボタンのイベントリスナー
@@ -256,8 +268,19 @@
             renderCalendar();
         });
 
+        // 現場セレクトボックスのイベントリスナー
+        siteSelect.addEventListener('change', (event) => {
+            currentSite = event.target.value;
+            renderCalendar();
+        });
+
         // 初期描画
-        document.addEventListener('DOMContentLoaded', renderCalendar);
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初期値セット（ロードタイミングで正しく取得）
+            currentSite = siteSelect.value;
+            currentBoard = boardSelect.value;
+            renderCalendar();
+        });
     </script>
 </body>
 </html>
