@@ -67,19 +67,18 @@
         <h1 class="text-3xl md:text-4xl font-bold text-center mb-2 text-gray-800">漏電ブレーカー作動テスト表</h1>
         <p class="text-sm md:text-base text-gray-600 text-center mb-4">使用前に毎日テストボタンで作動を確認する事</p>
         
+        <!-- 現場名追加欄 -->
+        <div class="flex items-center justify-center gap-2 mb-4">
+            <label for="site-name-input" class="text-gray-700 font-medium whitespace-nowrap">新しい現場名追加:</label>
+            <input type="text" id="site-name-input" class="rounded-lg border-gray-300 shadow-sm px-3 py-2" placeholder="現場名を入力">
+            <button id="add-site-btn" class="rounded-lg bg-blue-500 text-white px-4 py-2 hover:bg-blue-600">追加</button>
+        </div>
+        
         <!-- 分電盤と現場表示ナビゲーション -->
         <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-8">
             <div class="flex items-center gap-2">
                 <label for="site-select" class="text-gray-700 font-medium whitespace-nowrap">現場:</label>
-                <select id="site-select" class="rounded-lg border-gray-300 shadow-sm">
-                    <script>
-                        // 現場オプションを生成（例として3つ。必要に応じて編集可）
-                        const siteNames = ["A現場", "B現場", "C現場"];
-                        siteNames.forEach((site, i) => {
-                            document.write(`<option value="site-${i+1}">${site}</option>`);
-                        });
-                    </script>
-                </select>
+                <select id="site-select" class="rounded-lg border-gray-300 shadow-sm"></select>
             </div>
             <div class="flex items-center gap-2">
                 <label for="board-select" class="text-gray-700 font-medium whitespace-nowrap">分電盤:</label>
@@ -132,6 +131,29 @@
     </div>
     
     <script>
+        // 現場リストをlocalStorageに保存して管理する
+        const SITE_LIST_KEY = "breaker_sites";
+        function loadSites() {
+            return JSON.parse(localStorage.getItem(SITE_LIST_KEY)) || ["A現場", "B現場", "C現場"];
+        }
+        function saveSites(sites) {
+            localStorage.setItem(SITE_LIST_KEY, JSON.stringify(sites));
+        }
+
+        // 現場セレクトの再描画
+        function renderSiteSelect(selectedName) {
+            const siteSelect = document.getElementById('site-select');
+            const sites = loadSites();
+            siteSelect.innerHTML = "";
+            sites.forEach((site, i) => {
+                const option = document.createElement("option");
+                option.value = "site-" + (i+1);
+                option.textContent = site;
+                if (site === selectedName) option.selected = true;
+                siteSelect.appendChild(option);
+            });
+        }
+
         // カレンダー機能（現場ごと＋分電盤ごと＋年ごとにローカル保存）
         const calendarContainer = document.getElementById('calendar');
         const siteSelect = document.getElementById('site-select');
@@ -139,20 +161,30 @@
         const yearDisplay = document.getElementById('current-year');
         const prevYearBtn = document.getElementById('prev-year');
         const nextYearBtn = document.getElementById('next-year');
+        const siteNameInput = document.getElementById('site-name-input');
+        const addSiteBtn = document.getElementById('add-site-btn');
 
         let currentYear = new Date().getFullYear();
-        let currentSite = siteSelect.value;
-        let currentBoard = boardSelect.value;
+        let currentBoard = "";
+        let currentSiteId = "";
+        let currentSiteName = "";
+
         const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
         // localStorageキー生成（現場も含める）
-        function getStorageKey(site, board, year) {
-            return `breaker_checks_${site}_${board}_${year}`;
+        function getStorageKey(siteId, board, year) {
+            return `breaker_checks_${siteId}_${board}_${year}`;
+        }
+
+        function getSiteNameById(id) {
+            const sites = loadSites();
+            const idx = parseInt(id.replace('site-', '')) - 1;
+            return sites[idx] || "";
         }
 
         // 状態の取得（site, board, yearを渡す）
-        function loadChecks(site, board, year) {
-            const key = getStorageKey(site, board, year);
+        function loadChecks(siteId, board, year) {
+            const key = getStorageKey(siteId, board, year);
             try {
                 return JSON.parse(localStorage.getItem(key)) || {};
             } catch (e) {
@@ -162,8 +194,8 @@
         }
 
         // 状態の保存（site, board, yearを渡す）
-        function saveChecks(site, board, year, checks) {
-            const key = getStorageKey(site, board, year);
+        function saveChecks(siteId, board, year, checks) {
+            const key = getStorageKey(siteId, board, year);
             try {
                 localStorage.setItem(key, JSON.stringify(checks));
             } catch (e) {
@@ -180,22 +212,16 @@
         function renderCalendar() {
             yearDisplay.innerText = `${currentYear}年`;
             const dayCells = calendarContainer.querySelectorAll('.day-cell');
-            
-            // 各セルの無効状態をリセット
+
             dayCells.forEach(cell => {
                 const monthIndex = parseInt(cell.dataset.month);
                 const day = parseInt(cell.dataset.day);
-                
-                // うるう年の2月を考慮
                 const monthDays = (monthIndex === 1 && isLeapYear(currentYear)) ? 29 : daysInMonth[monthIndex];
-                
                 if (day > monthDays) {
-                    // 存在しない日付を無効化
                     cell.classList.add('invalid-cell');
                     cell.classList.remove('checked-cell');
                     cell.innerHTML = '';
                 } else {
-                    // 有効な日付を有効化
                     cell.classList.remove('invalid-cell');
                 }
             });
@@ -204,23 +230,19 @@
 
         // チェック状態をレンダリング
         function renderCheckmarks() {
-            const checks = loadChecks(currentSite, currentBoard, currentYear);
+            const checks = loadChecks(currentSiteId, currentBoard, currentYear);
             const dayCells = calendarContainer.querySelectorAll('.day-cell');
             dayCells.forEach(cell => {
                 const month = cell.dataset.month;
                 const day = cell.dataset.day;
                 const key = `${month}-${day}`;
-                
-                // 無効なセルには何も表示しない
                 if (cell.classList.contains('invalid-cell')) {
                     cell.innerHTML = '';
                     cell.classList.remove('checked-cell');
                 } else if (checks[key]) {
-                    // 保存されたデータに基づいてチェックマークを付与
                     cell.innerHTML = '✔';
                     cell.classList.add('checked-cell');
                 } else {
-                    // チェックマークを削除
                     cell.innerHTML = '';
                     cell.classList.remove('checked-cell');
                 }
@@ -230,26 +252,23 @@
         // クリックイベントで状態更新＆保存
         calendarContainer.addEventListener('click', (event) => {
             const cell = event.target.closest('.day-cell');
-            // 無効なセルや無関係な場所のクリックは無視
             if (!cell || cell.classList.contains('invalid-cell')) return;
 
             const month = cell.dataset.month;
             const day = cell.dataset.day;
             const key = `${month}-${day}`;
-            let checks = loadChecks(currentSite, currentBoard, currentYear);
-            
+            let checks = loadChecks(currentSiteId, currentBoard, currentYear);
+
             if (cell.classList.contains('checked-cell')) {
-                // チェックマークを削除
                 cell.classList.remove('checked-cell');
                 cell.innerHTML = '';
-                delete checks[key]; // 状態を削除
+                delete checks[key];
             } else {
-                // チェックマークを付与
                 cell.classList.add('checked-cell');
                 cell.innerHTML = '✔';
-                checks[key] = true; // 状態を保存
+                checks[key] = true;
             }
-            saveChecks(currentSite, currentBoard, currentYear, checks);
+            saveChecks(currentSiteId, currentBoard, currentYear, checks);
         });
 
         // 年号変更ボタンのイベントリスナー
@@ -270,14 +289,37 @@
 
         // 現場セレクトボックスのイベントリスナー
         siteSelect.addEventListener('change', (event) => {
-            currentSite = event.target.value;
+            currentSiteId = event.target.value;
+            currentSiteName = getSiteNameById(currentSiteId);
             renderCalendar();
+        });
+
+        // 現場追加ボタンのイベントリスナー
+        addSiteBtn.addEventListener('click', () => {
+            const inputVal = siteNameInput.value.trim();
+            if (!inputVal) {
+                alert("現場名を入力してください。");
+                return;
+            }
+            let sites = loadSites();
+            if (sites.includes(inputVal)) {
+                alert("同じ現場名が既に存在します。");
+                return;
+            }
+            sites.push(inputVal);
+            saveSites(sites);
+            renderSiteSelect(inputVal);
+            currentSiteId = "site-" + sites.length;
+            currentSiteName = inputVal;
+            renderCalendar();
+            siteNameInput.value = "";
         });
 
         // 初期描画
         document.addEventListener('DOMContentLoaded', () => {
-            // 初期値セット（ロードタイミングで正しく取得）
-            currentSite = siteSelect.value;
+            renderSiteSelect();
+            currentSiteId = siteSelect.value;
+            currentSiteName = getSiteNameById(currentSiteId);
             currentBoard = boardSelect.value;
             renderCalendar();
         });
