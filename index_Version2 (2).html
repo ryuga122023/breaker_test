@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>漏電ブレーカーテスト表（ローカル保存機能付き）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container { max-width: 1200px; }
+        .grid-container {
+            display: grid;
+            grid-template-columns: 80px repeat(31, minmax(0, 1fr));
+            overflow-x: auto;
+        }
+        .cell {
+            padding: 0.75rem 0.5rem;
+            border: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #4b5563;
+            user-select: none;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .cell:hover {
+            background-color: #f9fafb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .checked-cell {
+            background-color: #d1fae5;
+            color: #10b981;
+        }
+        .month-cell {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            justify-content: flex-start;
+            font-weight: 600;
+            color: #1f2937;
+            background-color: #f9fafb;
+            cursor: default;
+            transform: none;
+        }
+        .day-header-cell {
+            background-color: #e5e7eb;
+            font-weight: 700;
+            color: #374151;
+            cursor: default;
+        }
+        .invalid-cell {
+            background-color: #f3f4f6;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="container mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl">
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-2 text-gray-800">漏電ブレーカー作動テスト表</h1>
+        <p class="text-sm md:text-base text-gray-600 text-center mb-4">使用前に毎日テストボタンで作動を確認する事</p>
+        
+        <!-- 分電盤と現場表示ナビゲーション -->
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 mb-8">
+            <div class="flex items-center gap-2">
+                <label for="site-select" class="text-gray-700 font-medium whitespace-nowrap">現場:</label>
+                <select id="site-select" class="rounded-lg border-gray-300 shadow-sm">
+                    <script>
+                        // 現場オプションを生成（例として3つ。必要に応じて編集可）
+                        const siteNames = ["A現場", "B現場", "C現場"];
+                        siteNames.forEach((site, i) => {
+                            document.write(`<option value="site-${i+1}">${site}</option>`);
+                        });
+                    </script>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="board-select" class="text-gray-700 font-medium whitespace-nowrap">分電盤:</label>
+                <select id="board-select" class="rounded-lg border-gray-300 shadow-sm">
+                    <script>
+                        // 動的に12個の分電盤オプションを生成
+                        for (let i = 1; i <= 12; i++) {
+                            document.write(`<option value="board-${i}">分電盤 ${i}</option>`);
+                        }
+                    </script>
+                </select>
+            </div>
+            <div class="flex items-center gap-4">
+                <button id="prev-year" class="p-2 rounded-full bg-gray-200 hover:bg-gray-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h2 id="current-year" class="text-2xl font-bold text-gray-700"></h2>
+                <button id="next-year" class="p-2 rounded-full bg-gray-200 hover:bg-gray-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="calendar" class="grid-container rounded-lg overflow-hidden border border-gray-200 shadow-inner">
+            <!-- Header Row -->
+            <div class="cell day-header-cell rounded-tl-lg">月\日</div>
+            <!-- Days 1 to 31 -->
+            <script>
+                // 1日から31日までの日数を動的に生成
+                for (let i = 1; i <= 31; i++) {
+                    document.write(`<div class="cell day-header-cell">${i}</div>`);
+                }
+            </script>
+            <!-- Month Rows -->
+            <script>
+                // 月の行を動的に生成
+                const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+                months.forEach((month, monthIndex) => {
+                    document.write(`<div class="cell month-cell">${month}</div>`);
+                    for (let i = 1; i <= 31; i++) {
+                        document.write(`<div class="cell day-cell" data-month="${monthIndex}" data-day="${i}"></div>`);
+                    }
+                });
+            </script>
+        </div>
+    </div>
+    
+    <script>
+        // カレンダー機能（現場ごと＋分電盤ごと＋年ごとにローカル保存）
+        const calendarContainer = document.getElementById('calendar');
+        const siteSelect = document.getElementById('site-select');
+        const boardSelect = document.getElementById('board-select');
+        const yearDisplay = document.getElementById('current-year');
+        const prevYearBtn = document.getElementById('prev-year');
+        const nextYearBtn = document.getElementById('next-year');
+
+        let currentYear = new Date().getFullYear();
+        let currentSite = siteSelect.value;
+        let currentBoard = boardSelect.value;
+        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        // localStorageキー生成（現場も含める）
+        function getStorageKey(site, board, year) {
+            return `breaker_checks_${site}_${board}_${year}`;
+        }
+
+        // 状態の取得（site, board, yearを渡す）
+        function loadChecks(site, board, year) {
+            const key = getStorageKey(site, board, year);
+            try {
+                return JSON.parse(localStorage.getItem(key)) || {};
+            } catch (e) {
+                console.error("Failed to load data from localStorage", e);
+                return {};
+            }
+        }
+
+        // 状態の保存（site, board, yearを渡す）
+        function saveChecks(site, board, year, checks) {
+            const key = getStorageKey(site, board, year);
+            try {
+                localStorage.setItem(key, JSON.stringify(checks));
+            } catch (e) {
+                console.error("Failed to save data to localStorage", e);
+            }
+        }
+
+        // うるう年判定
+        function isLeapYear(year) {
+            return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        }
+
+        // カレンダー描画
+        function renderCalendar() {
+            yearDisplay.innerText = `${currentYear}年`;
+            const dayCells = calendarContainer.querySelectorAll('.day-cell');
+            
+            // 各セルの無効状態をリセット
+            dayCells.forEach(cell => {
+                const monthIndex = parseInt(cell.dataset.month);
+                const day = parseInt(cell.dataset.day);
+                
+                // うるう年の2月を考慮
+                const monthDays = (monthIndex === 1 && isLeapYear(currentYear)) ? 29 : daysInMonth[monthIndex];
+                
+                if (day > monthDays) {
+                    // 存在しない日付を無効化
+                    cell.classList.add('invalid-cell');
+                    cell.classList.remove('checked-cell');
+                    cell.innerHTML = '';
+                } else {
+                    // 有効な日付を有効化
+                    cell.classList.remove('invalid-cell');
+                }
+            });
+            renderCheckmarks();
+        }
+
+        // チェック状態をレンダリング
+        function renderCheckmarks() {
+            const checks = loadChecks(currentSite, currentBoard, currentYear);
+            const dayCells = calendarContainer.querySelectorAll('.day-cell');
+            dayCells.forEach(cell => {
+                const month = cell.dataset.month;
+                const day = cell.dataset.day;
+                const key = `${month}-${day}`;
+                
+                // 無効なセルには何も表示しない
+                if (cell.classList.contains('invalid-cell')) {
+                    cell.innerHTML = '';
+                    cell.classList.remove('checked-cell');
+                } else if (checks[key]) {
+                    // 保存されたデータに基づいてチェックマークを付与
+                    cell.innerHTML = '✔';
+                    cell.classList.add('checked-cell');
+                } else {
+                    // チェックマークを削除
+                    cell.innerHTML = '';
+                    cell.classList.remove('checked-cell');
+                }
+            });
+        }
+
+        // クリックイベントで状態更新＆保存
+        calendarContainer.addEventListener('click', (event) => {
+            const cell = event.target.closest('.day-cell');
+            // 無効なセルや無関係な場所のクリックは無視
+            if (!cell || cell.classList.contains('invalid-cell')) return;
+
+            const month = cell.dataset.month;
+            const day = cell.dataset.day;
+            const key = `${month}-${day}`;
+            let checks = loadChecks(currentSite, currentBoard, currentYear);
+            
+            if (cell.classList.contains('checked-cell')) {
+                // チェックマークを削除
+                cell.classList.remove('checked-cell');
+                cell.innerHTML = '';
+                delete checks[key]; // 状態を削除
+            } else {
+                // チェックマークを付与
+                cell.classList.add('checked-cell');
+                cell.innerHTML = '✔';
+                checks[key] = true; // 状態を保存
+            }
+            saveChecks(currentSite, currentBoard, currentYear, checks);
+        });
+
+        // 年号変更ボタンのイベントリスナー
+        prevYearBtn.addEventListener('click', () => {
+            currentYear--;
+            renderCalendar();
+        });
+        nextYearBtn.addEventListener('click', () => {
+            currentYear++;
+            renderCalendar();
+        });
+
+        // 分電盤セレクトボックスのイベントリスナー
+        boardSelect.addEventListener('change', (event) => {
+            currentBoard = event.target.value;
+            renderCalendar();
+        });
+
+        // 現場セレクトボックスのイベントリスナー
+        siteSelect.addEventListener('change', (event) => {
+            currentSite = event.target.value;
+            renderCalendar();
+        });
+
+        // 初期描画
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初期値セット（ロードタイミングで正しく取得）
+            currentSite = siteSelect.value;
+            currentBoard = boardSelect.value;
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
